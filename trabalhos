@@ -1,0 +1,237 @@
+npx create-react-app leitura-app
+cd leitura-app
+npm install axios react-router-dom
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import Home from './components/Home';
+import Login from './components/Login';
+import Register from './components/Register';
+
+const App = () => {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+      </Routes>
+    </Router>
+  );
+};
+
+export default App;
+import React, { useState } from 'react';
+import axios from 'axios';
+
+const Register = () => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post('http://localhost:5000/api/register', {
+        username,
+        password,
+      });
+      alert('Usuário criado com sucesso!');
+    } catch (error) {
+      console.error(error);
+      alert('Erro ao criar usuário');
+    }
+  };
+
+  return (
+    <form onSubmit={handleRegister}>
+      <h2>Registrar</h2>
+      <input
+        type="text"
+        placeholder="Nome de Usuário"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+      />
+      <input
+        type="password"
+        placeholder="Senha"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+      <button type="submit">Registrar</button>
+    </form>
+  );
+};
+
+export default Register;
+import React, { useState } from 'react';
+import axios from 'axios';
+
+const Login = () => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post('http://localhost:5000/api/login', {
+        username,
+        password,
+      });
+      alert(`Bem-vindo, ${response.data.username}!`);
+    } catch (error) {
+      console.error(error);
+      alert('Erro ao fazer login');
+    }
+  };
+
+  return (
+    <form onSubmit={handleLogin}>
+      <h2>Login</h2>
+      <input
+        type="text"
+        placeholder="Nome de Usuário"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+      />
+      <input
+        type="password"
+        placeholder="Senha"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+      <button type="submit">Entrar</button>
+    </form>
+  );
+};
+
+export default Login;
+mkdir backend
+cd backend
+npm init -y
+npm install express mongoose bcryptjs jsonwebtoken cors
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const User = require('./models/User');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+mongoose.connect('mongodb://localhost:27017/leitura-app', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+// Rota para registro
+app.post('/api/register', async (req, res) => {
+  const { username, password } = req.body;
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const user = new User({ username, password: hashedPassword });
+  await user.save();
+  res.status(201).send('Usuário criado');
+});
+
+// Rota para login
+app.post('/api/login', async (req, res) => {
+  const { username, password } = req.body;
+  const user = await User.findOne({ username });
+  if (user && (await bcrypt.compare(password, user.password))) {
+    res.json({ username: user.username });
+  } else {
+    res.status(401).send('Credenciais inválidas');
+  }
+});
+
+// Iniciar o servidor
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
+});
+const mongoose = require('mongoose');
+
+const userSchema = new mongoose.Schema({
+  username: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+});
+
+module.exports = mongoose.model('User', userSchema);
+node index.js
+npm start
+git init
+git add .
+git commit -m "Initial commit"
+git branch -M main
+git remote add origin <URL do seu repositório>
+git push -u origin main
+leitura-app/
+│
+├── backend/
+│   ├── index.js
+│   ├── models/
+│   │   ├── User.js
+│   │   └── Book.js
+│   ├── routes/
+│   │   ├── auth.js
+│   │   └── books.js
+│   └── middleware/
+│       └── auth.js
+│
+└── frontend/
+    ├── src/
+    │   ├── components/
+    │   │   ├── Home.js
+    │   │   ├── Login.js
+    │   │   ├── Register.js
+    │   │   └── BookList.js
+    │   ├── App.js
+    │   └── index.js
+    └── public/
+const mongoose = require('mongoose');
+
+const bookSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  author: { type: String, required: true },
+  description: { type: String, required: true },
+  reviews: [
+    {
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      comment: String,
+      rating: { type: Number, min: 1, max: 5 },
+    },
+  ],
+});
+
+module.exports = mongoose.model('Book', bookSchema);
+const express = require('express');
+const Book = require('../models/Book');
+const { verifyToken } = require('../middleware/auth');
+
+const router = express.Router();
+
+// Rota para obter todos os livros
+router.get('/', async (req, res) => {
+  const books = await Book.find();
+  res.json(books);
+});
+
+// Rota para adicionar um novo livro
+router.post('/', verifyToken, async (req, res) => {
+  const { title, author, description } = req.body;
+  const book = new Book({ title, author, description });
+  await book.save();
+  res.status(201).json(book);
+});
+
+// Rota para adicionar uma avaliação
+router.post('/:id/review', verifyToken, async (req, res) => {
+  const { comment, rating } = req.body;
+  const book = await Book.findById(req.params.id);
+  book.reviews.push({ userId: req.user.id, comment, rating });
+  await book.save();
+  res.json(book);
+});
+
+module.exports = router;
+const jwt = require('jsonwebtoken');
+
+const
